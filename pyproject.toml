@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "my_postgres_util"  # インストール時の名前
 version = "0.1.0"
 dependencies = [
-    "psycopg2-binary"
+    "psycopg2-binary",
+    "python-dotenv"
 ]
 
 [tool.setuptools]
