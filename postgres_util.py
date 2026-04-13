@@ -38,6 +38,25 @@ class PostgresUtil:
             self.conn.close()
             logger.debug("Connection closed automatically.")
 
+    @staticmethod
+    def auto_connect(func):
+        """
+        インスタンスメソッドとしても、クラスメソッドとしても呼べるようにする
+        1. self(db) があればそれを使う。
+        2. なければ新規接続して実行し、すぐ閉じる。
+        """
+
+        def wrapper(cls_or_self, *args, **kwargs):
+            # 第一引数が PostgresUtil のインスタンスかどうか判定
+            if isinstance(cls_or_self, PostgresUtil) and cls_or_self.conn:
+                return func(cls_or_self, *args, **kwargs)
+            else:
+                # インスタンスがない＝ショートカット呼び出し
+                with PostgresUtil() as db:
+                    return func(db, *args, **kwargs)
+
+        return wrapper
+
     # ------------------------------------------------------------------
     # ユーティリティー
     # ------------------------------------------------------------------
@@ -155,12 +174,18 @@ class PostgresUtil:
     # ------------------------------------------------------------------
     # パブリック
     # ------------------------------------------------------------------
+    @classmethod
+    @auto_connect
     def query_one(self, sql, params=None):
         return self._query(True, sql, params)
 
+    @classmethod
+    @auto_connect
     def query_list(self, sql, params=None):
         return self._query(False, sql, params)
 
+    @classmethod
+    @auto_connect
     def execute_cud(self, sql, params=None, mode="Execute"):
         """CUD実行と行数確認の共通内部メソッド"""
         with self.conn.cursor() as cur:
@@ -175,6 +200,8 @@ class PostgresUtil:
                 logger.warning(f"[{mode}] Warning: No rows affected.")
                 return False
 
+    @classmethod
+    @auto_connect
     def execute_use_values(self, sql, params):
         """CUD実行(values)"""
         try:
@@ -189,6 +216,8 @@ class PostgresUtil:
             logger.error(f"[execute_values] Error into {params}: {e}")
             return False
 
+    @classmethod
+    @auto_connect
     def insert(self, table_name, insert_doc):
         """1件挿入"""
         sql = self._create_insert_sql(table_name, insert_doc)
@@ -196,6 +225,8 @@ class PostgresUtil:
 
         return self.execute_cud(sql, values, f"Insert into {table_name}")
 
+    @classmethod
+    @auto_connect
     def insert_many(self, table_name, insert_docs):
         """複数挿入（高速版）"""
         if not insert_docs:
@@ -211,9 +242,13 @@ class PostgresUtil:
         params_list = [self._preprocess_params(doc) for doc in insert_docs]
         return self.execute_use_values(sql, params_list)
 
+    @classmethod
+    @auto_connect
     def select_one(self, table_name, where_doc, select_columns=None):
         return self._select(True, table_name, where_doc, select_columns)
 
+    @classmethod
+    @auto_connect
     def select_list(self, table_name, where_doc, select_columns=None):
         return self._select(False, table_name, where_doc, select_columns)
 
@@ -228,6 +263,8 @@ class PostgresUtil:
         finally:
             cur.close()
 
+    @classmethod
+    @auto_connect
     def count(self, table_name, where_doc):
         """指定した条件に一致するレコード数を取得"""
         sql = self._create_count_sql(table_name, where_doc)
@@ -237,6 +274,8 @@ class PostgresUtil:
         result = self.query_one(sql, values)
         return result["count"] if result else 0
 
+    @classmethod
+    @auto_connect
     def update(self, table_name, where_doc, update_doc):
         sql = self._create_update_sql(table_name, where_doc, update_doc)
         update_values = self._preprocess_params(update_doc)
@@ -246,6 +285,8 @@ class PostgresUtil:
         """更新 + 更新行数チェック"""
         return self.execute_cud(sql, params, "Update")
 
+    @classmethod
+    @auto_connect
     def update_jsonb_merge(self, table_name, where_doc, update_doc):
         sql = self._create_update_jsonb_merge_sql(table_name, where_doc, update_doc)
         update_values = self._preprocess_params(update_doc)
@@ -255,6 +296,8 @@ class PostgresUtil:
         """更新 + 更新行数チェック"""
         return self.execute_cud(sql, params, "Update")
 
+    @classmethod
+    @auto_connect
     def delete(self, table_name, where_doc):
         """削除 + 更新行数チェック"""
         sql = self._create_delete_sql(table_name, where_doc)
