@@ -74,6 +74,18 @@ class PostgresUtil:
                 cleaned_values.append(v)
         return tuple(cleaned_values)
 
+    def _create_where_str(self, where_doc):
+        where_conditions = []
+        # 値がリストの場合、「重なり( && )」をデフォルトとする
+        for col, val in where_doc.items():
+            if isinstance(val, list):
+                where_conditions.append(f"{col} && %s")
+            else:
+                where_conditions.append(f"{col} = %s")
+
+        where_str = " AND ".join(where_conditions)
+        return where_str
+
     def _create_insert_sql(self, table_name, insert_doc):
         """辞書のキーから、INSERT文を作る処理"""
         if not insert_doc:
@@ -93,9 +105,7 @@ class PostgresUtil:
             raise ValueError("条件が設定されていません")
 
         # where
-        where_columns = list(where_doc.keys())
-        where_conditions = [f"{col} = %s" for col in where_columns]
-        where_str = " AND ".join(where_conditions)
+        where_str = self._create_where_str(where_doc)
 
         # select
         select_str = "*"
@@ -110,9 +120,7 @@ class PostgresUtil:
             raise ValueError("条件が設定されていません")
 
         # where
-        where_columns = list(where_doc.keys())
-        where_conditions = [f"{col} = %s" for col in where_columns]
-        where_str = " AND ".join(where_conditions)
+        where_str = self._create_where_str(where_doc)
 
         # update
         update_columns = list(update_doc.keys())
@@ -142,18 +150,14 @@ class PostgresUtil:
             raise ValueError("条件が設定されていません")
 
         # where
-        where_columns = list(where_doc.keys())
-        where_conditions = [f"{col} = %s" for col in where_columns]
-        where_str = " AND ".join(where_conditions)
+        where_str = self._create_where_str(where_doc)
 
         return f"DELETE FROM {table_name} WHERE {where_str}"
 
     def _create_count_sql(self, table_name, where_doc):
         """辞書のキーから、COUNT文を作る処理"""
-        # where句の生成（_create_select_sql と共通のロジック）
-        where_columns = list(where_doc.keys())
-        where_conditions = [f"{col} = %s" for col in where_columns]
-        where_str = " AND ".join(where_conditions)
+        # where
+        where_str = self._create_where_str(where_doc)
 
         return f"SELECT COUNT(*) as count FROM {table_name} WHERE {where_str}"
 
