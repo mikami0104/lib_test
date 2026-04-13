@@ -217,6 +217,17 @@ class PostgresUtil:
     def select_list(self, table_name, where_doc, select_columns=None):
         return self._select(False, table_name, where_doc, select_columns)
 
+    def select_iter(self, sql, params=None):
+        """1件ずつ yield するジェネレータ (MongoDBのCursor的な挙動)"""
+        # cur を with で囲むと抜けた時に閉じちゃうので、明示的に管理
+        cur = self.conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cur.execute(sql, params)
+            for row in cur:
+                yield row
+        finally:
+            cur.close()
+
     def count(self, table_name, where_doc):
         """指定した条件に一致するレコード数を取得"""
         sql = self._create_count_sql(table_name, where_doc)
