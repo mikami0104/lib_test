@@ -176,7 +176,7 @@ class PostgresUtil:
         return self._query(is_one, sql, values)
 
     # ------------------------------------------------------------------
-    # パブリック
+    # パブリック ※クラスメソッドとインスタンスメソッド併用
     # ------------------------------------------------------------------
     @classmethod
     @auto_connect
@@ -256,17 +256,6 @@ class PostgresUtil:
     def select_list(self, table_name, where_doc, select_columns=None):
         return self._select(False, table_name, where_doc, select_columns)
 
-    def select_iter(self, sql, params=None):
-        """1件ずつ yield するジェネレータ (MongoDBのCursor的な挙動)"""
-        # cur を with で囲むと抜けた時に閉じちゃうので、明示的に管理
-        cur = self.conn.cursor(cursor_factory=RealDictCursor)
-        try:
-            cur.execute(sql, params)
-            for row in cur:
-                yield row
-        finally:
-            cur.close()
-
     @classmethod
     @auto_connect
     def count(self, table_name, where_doc):
@@ -308,3 +297,22 @@ class PostgresUtil:
         values = self._preprocess_params(where_doc)
 
         return self.execute_cud(sql, values, f"Delete {table_name}")
+
+    # ------------------------------------------------------------------
+    # パブリック ※インスタンスメソッドのみ
+    # ------------------------------------------------------------------
+    def select_iter(self, sql, params=None):
+        """1件ずつ yield するジェネレータ (MongoDBのCursor的な挙動)"""
+        # cur を with で囲むと抜けた時に閉じちゃうので、明示的に管理
+        cur = self.conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cur.execute(sql, params)
+            for row in cur:
+                yield row
+        finally:
+            cur.close()
+
+    def commit(self):
+        if self.conn:
+            self.conn.commit()
+            logger.info("Transaction committed.")
