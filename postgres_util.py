@@ -312,7 +312,18 @@ class PostgresUtil:
         finally:
             cur.close()
 
+    def execute(self, sql, params=None):
+        """コミットせず実行だけ行う（手動コミット用）"""
+        with self.conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.rowcount
+
     def commit(self):
+        """変更を確定する"""
         if self.conn:
             self.conn.commit()
-            logger.info("Transaction committed.")
+
+    def rollback(self):
+        """変更を取り消す（エラー時用）"""
+        if self.conn:
+            self.conn.rollback()
